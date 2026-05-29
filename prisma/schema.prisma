@@ -1,0 +1,157 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["absensi"]
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+  @@schema("absensi")
+}
+
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+  ABSENT
+  LEAVE
+  @@schema("absensi")
+}
+
+enum TaskType {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  @@schema("absensi")
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  @@schema("absensi")
+}
+
+enum LeaveType {
+  SICK
+  LEAVE
+  URGENT
+  @@schema("absensi")
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  @@schema("absensi")
+}
+
+model Employee {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(EMPLOYEE)
+  dailySalary   Float @default(100000.0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  attendances   Attendance[]
+  tasks         Task[]         @relation("AssignedTasks")
+  createdTasks  Task[]         @relation("CreatedTasks")
+  leaveRequests LeaveRequest[]
+  taskComments  TaskComment[]
+  privateNotes  PrivateNote[]  @relation("NotesForEmployee")
+  createdNotes  PrivateNote[]  @relation("NotesCreatedBy")
+
+  @@schema("absensi")
+}
+
+model Attendance {
+  id               String           @id @default(uuid())
+  employeeId       String
+  employee         Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date             String           // Format tanggal: YYYY-MM-DD
+  clockIn          DateTime         @default(now())
+  clockOut         DateTime?
+  status           AttendanceStatus @default(ON_TIME)
+  notes            String?
+  clockInLatitude  Float?
+  clockInLongitude Float?
+  clockInSelfie    String?          // Menyimpan string Base64 terkompresi
+  clockOutLatitude  Float?
+  clockOutLongitude Float?
+  clockOutSelfie    String?         // Menyimpan string Base64 terkompresi
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@schema("absensi")
+}
+
+model Task {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  type        TaskType      @default(DAILY)
+  status      TaskStatus    @default(PENDING)
+  dueDate     DateTime?
+  employeeId  String?       // Opsional untuk tugas claimable FCFS sebelum diklaim
+  employee    Employee?     @relation("AssignedTasks", fields: [employeeId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   Employee      @relation("CreatedTasks", fields: [createdById], references: [id])
+  isClaimable Boolean       @default(false)
+  claimedAt   DateTime?
+  comments    TaskComment[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  excludedDates String?     // Comma-separated excluded dates in YYYY-MM-DD format
+
+  @@schema("absensi")
+}
+
+model LeaveRequest {
+  id          String      @id @default(uuid())
+  employeeId  String
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate   DateTime
+  endDate     DateTime
+  type        LeaveType   @default(LEAVE)
+  reason      String
+  status      LeaveStatus @default(PENDING)
+  adminNotes  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@schema("absensi")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    Employee @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@schema("absensi")
+}
+
+model PrivateNote {
+  id          String   @id @default(uuid())
+  employeeId  String
+  employee    Employee @relation("NotesForEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  createdById String
+  createdBy   Employee @relation("NotesCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("absensi")
+}
