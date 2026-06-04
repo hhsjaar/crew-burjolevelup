@@ -43,8 +43,9 @@ export default function AdminLiveAttendance({ todayAttendances }: AdminLiveAtten
               <thead>
                 <tr className="border-b border-zinc-900 text-zinc-550 font-bold uppercase tracking-wider text-[9px]">
                   <th className="py-2.5 px-3">Karyawan</th>
-                  <th className="py-2.5 px-3">Clock-In (Masuk)</th>
-                  <th className="py-2.5 px-3">Clock-Out (Pulang)</th>
+                  <th className="py-2.5 px-3">Shift</th>
+                  <th className="py-2.5 px-3">Jam Absen</th>
+                  <th className="py-2.5 px-3 text-center">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -55,10 +56,16 @@ export default function AdminLiveAttendance({ todayAttendances }: AdminLiveAtten
                       <span className="text-[10px] text-zinc-500">{att.employee.email}</span>
                     </td>
                     
+                    {/* Shift Info */}
+                    <td className="py-3 px-3">
+                      <span className="font-bold text-zinc-300 block">{att.shift?.name || "-"}</span>
+                      <span className="text-[10px] text-zinc-500">{att.shift?.startTime ? `${att.shift.startTime} WIB` : ""}</span>
+                    </td>
+
                     {/* Clock In info */}
                     <td className="py-3 px-3">
                       <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
+                        <div className="flex items-center gap-1.5 text-zinc-350 font-medium">
                           <Clock className="w-3.5 h-3.5 text-zinc-500" />
                           <span>{formatTime(att.clockIn)}</span>
                         </div>
@@ -96,49 +103,27 @@ export default function AdminLiveAttendance({ todayAttendances }: AdminLiveAtten
                       </div>
                     </td>
 
-                    {/* Clock Out info */}
-                    <td className="py-3 px-3">
-                      {att.clockOut ? (
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
-                            <Clock className="w-3.5 h-3.5 text-zinc-650" />
-                            <span>{formatTime(att.clockOut)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {att.clockOutSelfie ? (
-                              <button
-                                onClick={() => setSelectedSelfie({
-                                  name: att.employee.name,
-                                  type: "Pulang",
-                                  image: att.clockOutSelfie
-                                })}
-                                className="w-7 h-7 rounded bg-zinc-900 border border-zinc-800 overflow-hidden hover:border-zinc-500 transition-colors cursor-pointer shrink-0"
-                                title="Klik untuk perbesar selfie pulang"
-                              >
-                                <img src={att.clockOutSelfie} alt="Selfie Pulang" className="w-full h-full object-cover" />
-                              </button>
-                            ) : (
-                              <span className="text-[8px] bg-zinc-900 text-zinc-650 px-1 py-0.5 rounded border border-zinc-800 shrink-0">NO SELFIE</span>
-                            )}
-
-                            {att.clockOutLatitude && att.clockOutLongitude ? (
-                              <a
-                                href={`https://www.google.com/maps/search/?api=1&query=${att.clockOutLatitude},${att.clockOutLongitude}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1 rounded bg-zinc-900 border border-zinc-850 text-zinc-400 hover:text-white transition-colors flex items-center justify-center"
-                                title="Buka lokasi pulang di Google Maps"
-                              >
-                                <MapPin className="w-3.5 h-3.5" />
-                              </a>
-                            ) : (
-                              <span className="text-[8px] text-zinc-650">NO GPS</span>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-600 italic text-[11px]">Belum Pulang</span>
-                      )}
+                    {/* Status Info */}
+                    <td className="py-3 px-3 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase border ${
+                          att.status === "LATE"
+                            ? "bg-red-500/5 text-red-400 border-red-500/10"
+                            : att.status === "LEAVE"
+                            ? "bg-zinc-900/60 text-zinc-400 border-zinc-800"
+                            : "bg-white/5 text-white border-white/20"
+                        }`}
+                      >
+                        {att.status === "LATE" ? (
+                          "Terlambat"
+                        ) : att.status === "LEAVE" ? (
+                          "Izin/Cuti"
+                        ) : att.status === "ABSENT" ? (
+                          "Alpa"
+                        ) : (
+                          "Tepat Waktu"
+                        )}
+                      </span>
                     </td>
                   </tr>
                 ))}

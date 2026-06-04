@@ -72,25 +72,34 @@ export async function approveLeaveRequest(requestId: string, adminNotes?: string
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split("T")[0];
       try {
-        await db.attendance.upsert({
+        const existing = await db.attendance.findFirst({
           where: {
-            employeeId_date: {
-              employeeId: request.employeeId,
-              date: dateStr,
-            },
-          },
-          update: {
-            status: "LEAVE",
-            notes: `Izin Disetujui (${request.type}): ${request.reason}`,
-          },
-          create: {
             employeeId: request.employeeId,
             date: dateStr,
-            clockIn: new Date(d),
-            status: "LEAVE",
-            notes: `Izin Disetujui (${request.type}): ${request.reason}`,
+            shiftId: null,
           },
         });
+
+        if (existing) {
+          await db.attendance.update({
+            where: { id: existing.id },
+            data: {
+              status: "LEAVE",
+              notes: `Izin Disetujui (${request.type}): ${request.reason}`,
+            },
+          });
+        } else {
+          await db.attendance.create({
+            data: {
+              employeeId: request.employeeId,
+              date: dateStr,
+              shiftId: null,
+              clockIn: new Date(d),
+              status: "LEAVE",
+              notes: `Izin Disetujui (${request.type}): ${request.reason}`,
+            },
+          });
+        }
       } catch (upsertError) {
         console.error("Error creating leave attendance record:", upsertError);
       }

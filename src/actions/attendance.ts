@@ -13,39 +13,54 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export async function clockIn(notes?: string, latitude?: number, longitude?: number, selfie?: string) {
+export async function clockIn(shiftId: string, notes?: string, latitude?: number, longitude?: number, selfie?: string) {
   const session = await getSession();
   if (!session) return { error: "Sesi habis. Silakan login kembali." };
+
+  if (!shiftId) return { error: "Pilih shift terlebih dahulu." };
 
   const todayStr = getLocalDateString();
   const now = new Date();
 
-  // Batas toleransi masuk pukul 08:00 pagi
-  const limitTime = new Date(now);
-  limitTime.setHours(8, 0, 0, 0);
-
-  const status = now > limitTime ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME;
-  const statusNotes = notes && notes.trim() !== "" ? notes.trim() : null;
-
   try {
-    // Periksa apakah sudah clock-in hari ini
+    // Find shift
+    const shift = await db.shift.findUnique({
+      where: { id: shiftId },
+    });
+    if (!shift) return { error: "Shift tidak ditemukan." };
+
+    // Calculate late status
+    // Shift start time is in format "HH:mm" e.g., "09:00"
+    const [shiftHours, shiftMinutes] = shift.startTime.split(":").map(Number);
+    const targetTime = new Date(now);
+    targetTime.setHours(shiftHours, shiftMinutes, 0, 0);
+
+    // Late limit is 15 minutes past start time
+    const limitTime = new Date(targetTime.getTime() + 15 * 60 * 1000);
+
+    const status = now > limitTime ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME;
+    const statusNotes = notes && notes.trim() !== "" ? notes.trim() : null;
+
+    // Periksa apakah sudah clock-in untuk shift ini hari ini
     const existing = await db.attendance.findUnique({
       where: {
-        employeeId_date: {
+        employeeId_date_shiftId: {
           employeeId: session.id,
           date: todayStr,
+          shiftId: shiftId,
         },
       },
     });
 
     if (existing) {
-      return { error: "Anda sudah melakukan absensi masuk hari ini." };
+      return { error: `Anda sudah melakukan absensi masuk untuk shift ${shift.name} hari ini.` };
     }
 
     const attendance = await db.attendance.create({
       data: {
         employeeId: session.id,
         date: todayStr,
+        shiftId: shiftId,
         clockIn: now,
         status,
         notes: statusNotes,
@@ -65,68 +80,34 @@ export async function clockIn(notes?: string, latitude?: number, longitude?: num
 }
 
 export async function clockOut(notes?: string, latitude?: number, longitude?: number, selfie?: string) {
-  const session = await getSession();
-  if (!session) return { error: "Sesi habis. Silakan login kembali." };
-
-  const todayStr = getLocalDateString();
-  const now = new Date();
-
-  try {
-    const existing = await db.attendance.findUnique({
-      where: {
-        employeeId_date: {
-          employeeId: session.id,
-          date: todayStr,
-        },
-      },
-    });
-
-    if (!existing) {
-      return { error: "Anda harus melakukan Clock-In terlebih dahulu hari ini." };
-    }
-
-    if (existing.clockOut) {
-      return { error: "Anda sudah melakukan absensi pulang hari ini." };
-    }
-
-    const updatedNotes = notes && notes.trim() !== ""
-      ? (existing.notes ? `${existing.notes} | ${notes.trim()}` : notes.trim())
-      : existing.notes;
-
-    const attendance = await db.attendance.update({
-      where: { id: existing.id },
-      data: {
-        clockOut: now,
-        notes: updatedNotes,
-        clockOutLatitude: latitude || null,
-        clockOutLongitude: longitude || null,
-        clockOutSelfie: selfie || null,
-      },
-    });
-
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/attendance");
-    return { success: true, attendance };
-  } catch (error) {
-    console.error("Clock Out error:", error);
-    return { error: "Gagal mencatat absensi pulang." };
-  }
+  return { error: "Fitur Clock-Out dinonaktifkan. Sistem sekarang menggunakan Absen Masuk per Shift." };
 }
 
 export async function getTodayAttendance(employeeId: string) {
+  // Backward compatibility
+  const res = await getTodayAttendances(employeeId);
+  return res.length > 0 ? res[0] : null;
+}
+
+export async function getTodayAttendances(employeeId: string) {
   const todayStr = getLocalDateString();
   try {
-    const attendance = await db.attendance.findUnique({
+    const attendances = await db.attendance.findMany({
       where: {
-        employeeId_date: {
-          employeeId,
-          date: todayStr,
-        },
+        employeeId,
+        date: todayStr,
+      },
+      include: {
+        shift: true,
+      },
+      orderBy: {
+        clockIn: "asc",
       },
     });
-    return attendance;
+    return attendances;
   } catch (error) {
-    return null;
+    console.error("Error getTodayAttendances:", error);
+    return [];
   }
 }
 
@@ -134,6 +115,9 @@ export async function getEmployeeAttendanceHistory(employeeId: string) {
   try {
     const history = await db.attendance.findMany({
       where: { employeeId },
+      include: {
+        shift: true,
+      },
       orderBy: { clockIn: "desc" },
     });
     return history;
@@ -158,6 +142,7 @@ export async function getAllTodayAttendance() {
             email: true,
           },
         },
+        shift: true,
       },
       orderBy: { clockIn: "asc" },
     });
@@ -166,3 +151,4 @@ export async function getAllTodayAttendance() {
     return [];
   }
 }
+

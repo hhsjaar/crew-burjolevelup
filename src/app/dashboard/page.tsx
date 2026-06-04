@@ -1,5 +1,5 @@
 import { getCurrentEmployee } from "@/actions/auth";
-import { getTodayAttendance, getAllTodayAttendance } from "@/actions/attendance";
+import { getTodayAttendances, getAllTodayAttendance } from "@/actions/attendance";
 import { getEmployeeTasks, getAllTasksWithEmployees, getClaimableTasks } from "@/actions/tasks";
 import { getEmployeeLeaveRequests, getAllLeaveRequests } from "@/actions/leave";
 import { getEmployeePrivateNotes } from "@/actions/notes";
@@ -22,6 +22,7 @@ import {
   MapPin,
   Calendar,
   Users,
+  CalendarRange,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -44,7 +45,11 @@ export default async function DashboardPage() {
     // ---------------------------------------------
     // EMPLOYEE DASHBOARD LOGIC
     // ---------------------------------------------
-    const attendance = await getTodayAttendance(user.id);
+    const todayAttendances = await getTodayAttendances(user.id);
+    const activeShifts = await db.shift.findMany({
+      where: { isActive: true },
+      orderBy: { startTime: "asc" },
+    });
     
     // Fetch all personal routine tasks with employee relation
     const tasks = await db.task.findMany({
@@ -111,17 +116,17 @@ export default async function DashboardPage() {
               <div>
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Status Presensi</p>
                 <h3 className="text-xs font-bold mt-2 text-zinc-200">
-                  {!attendance ? "Belum Masuk" : "Sudah Absen"}
+                  {todayAttendances.length === 0 ? "Belum Masuk" : `${todayAttendances.length} Shift Diikuti`}
                 </h3>
               </div>
               <div className="p-2.5 bg-zinc-900 rounded-lg text-zinc-400 border border-zinc-800">
                 <UserCheck className="w-4 h-4" />
               </div>
             </div>
-            {attendance && (
-              <p className="text-[10px] text-zinc-400 mt-3 flex items-center gap-1">
-                <Clock className="w-3 h-3 text-zinc-500" />
-                <span>Masuk: {new Date(attendance.clockIn).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}</span>
+            {todayAttendances.length > 0 && (
+              <p className="text-[10px] text-zinc-400 mt-3 flex items-center gap-1 truncate">
+                <Clock className="w-3 h-3 text-zinc-500 shrink-0" />
+                <span>Terakhir: {new Date(todayAttendances[todayAttendances.length - 1].clockIn).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })} ({todayAttendances[todayAttendances.length - 1].shift?.name})</span>
               </p>
             )}
           </div>
@@ -173,7 +178,7 @@ export default async function DashboardPage() {
 
         {/* GEOLOCATION ATTENDANCE Presensi */}
         <div className="grid grid-cols-1 gap-6">
-          <AttendanceCard attendance={attendance} employeeId={user.id} />
+          <AttendanceCard todayAttendances={todayAttendances} activeShifts={activeShifts as any[]} employeeId={user.id} />
         </div>
 
         {/* 30-DAY GOOGLE CALENDAR & JOBDESK INTERACTION */}
@@ -345,6 +350,19 @@ export default async function DashboardPage() {
               <div className="text-left min-w-0">
                 <p className="font-semibold text-xs text-zinc-200">Kelola Karyawan & Gaji</p>
                 <p className="text-[9px] text-zinc-500 truncate mt-0.5">Tambah user baru, edit username, atau reset sandi</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/admin/shifts"
+              className="p-3.5 rounded-lg bg-zinc-950/40 hover:bg-zinc-900/40 border border-zinc-900 hover:border-zinc-800 flex items-center gap-3.5 transition-all group"
+            >
+              <div className="p-2 bg-zinc-900 text-white rounded-md border border-zinc-800 group-hover:scale-105 transition-transform">
+                <CalendarRange className="w-4.5 h-4.5" />
+              </div>
+              <div className="text-left min-w-0">
+                <p className="font-semibold text-xs text-zinc-200">Kelola Shift Kerja</p>
+                <p className="text-[9px] text-zinc-500 truncate mt-0.5">Tambah, ubah jam toleransi masuk, atau nonaktifkan shift</p>
               </div>
             </Link>
 

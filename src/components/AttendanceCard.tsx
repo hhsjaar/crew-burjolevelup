@@ -1,19 +1,27 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { clockIn, clockOut } from "@/actions/attendance";
-import { Camera, MapPin, CheckCircle, Clock, AlertCircle, RefreshCw, X } from "lucide-react";
+import { clockIn } from "@/actions/attendance";
+import { Camera, MapPin, CheckCircle, Clock, AlertCircle, RefreshCw, X, AlertOctagon } from "lucide-react";
 import { toast } from "sonner";
 
+interface Shift {
+  id: string;
+  name: string;
+  startTime: string;
+  isActive: boolean;
+}
+
 interface AttendanceCardProps {
-  attendance: any;
+  todayAttendances: any[];
+  activeShifts: Shift[];
   employeeId: string;
 }
 
-export default function AttendanceCard({ attendance: initialAttendance, employeeId }: AttendanceCardProps) {
-  const [attendance, setAttendance] = useState(initialAttendance);
+export default function AttendanceCard({ todayAttendances, activeShifts, employeeId }: AttendanceCardProps) {
+  const [attendances, setAttendances] = useState<any[]>(todayAttendances);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [mode, setMode] = useState<"in" | "out">("in");
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   
@@ -129,6 +137,7 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
   };
 
   const handleAttendance = async () => {
+    if (!selectedShift) return;
     if (!photo) {
       toast.error("Wajib mengambil foto selfie sebelum absen.");
       return;
@@ -140,16 +149,18 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
 
     setLoading(true);
     try {
-      const res =
-        mode === "in"
-          ? await clockIn(notes, coords.lat, coords.lng, photo)
-          : await clockOut(notes, coords.lat, coords.lng, photo);
+      const res = await clockIn(selectedShift.id, notes, coords.lat, coords.lng, photo);
 
       if (res.error) {
         toast.error(res.error);
       } else {
-        toast.success(mode === "in" ? "Absen masuk sukses!" : "Absen pulang sukses!");
-        setAttendance(res.attendance);
+        toast.success(`Absen masuk ${selectedShift.name} sukses!`);
+        // Append shift details to updated attendance
+        const finalAttendance = {
+          ...res.attendance,
+          shift: selectedShift,
+        };
+        setAttendances((prev) => [...prev, finalAttendance]);
         setIsModalOpen(false);
         setNotes("");
       }
@@ -160,8 +171,8 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
     }
   };
 
-  const openAbsenceModal = (type: "in" | "out") => {
-    setMode(type);
+  const openAbsenceModal = (shift: Shift) => {
+    setSelectedShift(shift);
     setIsModalOpen(true);
   };
 
@@ -170,63 +181,92 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
       <div>
         <div className="flex items-center gap-2.5 mb-4">
           <Clock className="w-4.5 h-4.5 text-zinc-400" />
-          <h2 className="font-semibold text-base text-white">Presensi Kerja</h2>
+          <h2 className="font-semibold text-base text-white">Presensi Kerja Shift</h2>
         </div>
         <p className="text-xs text-zinc-400 mb-6 leading-relaxed">
-          Silakan catat absensi masuk (batas pukul 08:00 WIB) dan absen pulang dengan selfie kamera dan verifikasi koordinat GPS aktif.
+          Silakan catat absensi masuk untuk shift kerja aktif Anda hari ini. Batas keterlambatan adalah 15 menit dari jam mulai shift. Verifikasi foto selfie dan lokasi GPS diperlukan untuk setiap shift.
         </p>
       </div>
 
-      <div className="my-4 p-5 rounded-lg bg-zinc-950/40 border border-zinc-900/60 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="text-center sm:text-left">
-          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Waktu Presensi Hari Ini</p>
-          <div className="flex items-center gap-6 mt-2">
-            <div>
-              <span className="text-[9px] text-zinc-500 font-bold block">MASUK</span>
-              <span className="text-xs font-semibold text-zinc-300">
-                {attendance?.clockIn ? new Date(attendance.clockIn).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : "-- : --"}
-              </span>
-            </div>
-            <div className="border-l border-zinc-900 h-6" />
-            <div>
-              <span className="text-[9px] text-zinc-500 font-bold block">PULANG</span>
-              <span className="text-xs font-semibold text-zinc-300">
-                {attendance?.clockOut ? new Date(attendance.clockOut).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : "-- : --"}
-              </span>
-            </div>
+      {/* Shifts List Grid */}
+      <div className="my-4 space-y-3">
+        <p className="text-[10px] font-bold text-zinc-550 uppercase tracking-widest">Daftar Shift Kerja Hari Ini</p>
+        
+        {activeShifts.length === 0 ? (
+          <div className="py-8 text-center text-zinc-650 text-xs italic">
+            Belum ada shift kerja aktif yang terdaftar di sistem.
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {activeShifts.map((shift) => {
+              const att = attendances.find((a) => a.shiftId === shift.id);
+              const isCheckedIn = !!att;
 
-        <div>
-          {!attendance ? (
-            <button
-              onClick={() => openAbsenceModal("in")}
-              className="px-5 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider apple-btn-primary cursor-pointer"
-            >
-              Clock-In Masuk
-            </button>
-          ) : !attendance.clockOut ? (
-            <button
-              onClick={() => openAbsenceModal("out")}
-              className="px-5 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider apple-btn-secondary cursor-pointer"
-            >
-              Clock-Out Pulang
-            </button>
-          ) : (
-            <div className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-zinc-300 rounded-lg border border-zinc-800 text-[10px] font-bold uppercase tracking-wider">
-              <CheckCircle className="w-4 h-4 text-zinc-400" />
-              <span>Absensi Selesai</span>
-            </div>
-          )}
-        </div>
+              return (
+                <div
+                  key={shift.id}
+                  className={`p-4 rounded-xl border flex items-center justify-between gap-4 transition-all ${
+                    isCheckedIn
+                      ? "bg-zinc-950/60 border-zinc-900/60"
+                      : "bg-zinc-950/20 border-zinc-900/40 hover:border-zinc-800"
+                  }`}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <span className="font-semibold text-xs text-white block">{shift.name}</span>
+                    <div className="flex items-center gap-2 text-[10px] text-zinc-500 font-medium">
+                      <Clock className="w-3.5 h-3.5 text-zinc-600" />
+                      <span>Mulai: {shift.startTime} WIB</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    {isCheckedIn ? (
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase border ${
+                            att.status === "LATE"
+                              ? "bg-red-500/5 text-red-400 border-red-500/10"
+                              : "bg-white/5 text-white border-white/20"
+                          }`}
+                        >
+                          {att.status === "LATE" ? (
+                            <>
+                              <AlertOctagon className="w-2.5 h-2.5" />
+                              Terlambat
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-2.5 h-2.5" />
+                              Tepat Waktu
+                            </>
+                          )}
+                        </span>
+                        <span className="text-[9px] text-zinc-500 font-bold">
+                          In: {new Date(att.clockIn).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => openAbsenceModal(shift)}
+                        className="px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider apple-btn-primary cursor-pointer shrink-0"
+                      >
+                        Absen Masuk
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <div className="text-[10px] text-zinc-500 text-center sm:text-left">
+      <div className="text-[10px] text-zinc-500 text-center sm:text-left mt-6">
         Autentikasi terenkripsi • Burjolevelup Outlet Cabang Ungaran
       </div>
 
       {/* Modal Absensi Kamera + GPS */}
-      {isModalOpen && (
+      {isModalOpen && selectedShift && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="glass-panel w-full max-w-md rounded-xl border border-zinc-800 p-6 space-y-5 relative">
             <button
@@ -238,10 +278,10 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
 
             <div>
               <h3 className="font-semibold text-sm text-white">
-                Validasi Presensi: {mode === "in" ? "Clock-In Masuk" : "Clock-Out Pulang"}
+                Validasi Presensi: {selectedShift.name}
               </h3>
               <p className="text-[11px] text-zinc-500 mt-1">
-                Kamera dan lokasi GPS mendeteksi kedisiplinan Anda.
+                Kamera dan lokasi GPS mendeteksi kedisiplinan Anda pada jam masuk {selectedShift.startTime} WIB.
               </p>
             </div>
 
@@ -330,7 +370,7 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Contoh: Buka shift pagi / Beres-beres closing..."
+                placeholder="Contoh: Datang bersiap buka kasir / telat karena jalan licin..."
                 className="w-full px-3 py-2 rounded-lg glass-input text-xs"
               />
             </div>
@@ -358,3 +398,4 @@ export default function AttendanceCard({ attendance: initialAttendance, employee
     </div>
   );
 }
+

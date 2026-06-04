@@ -145,7 +145,7 @@ export default async function PayrollPage({
 
               <tbody>
                 {recaps.map((emp) => {
-                  const presentDays = emp.totalOnTime + emp.totalLate;
+                  const presentDays = emp.presentDays;
 
                   // TOTAL GAJI
                   const totalSalary = presentDays * emp.dailySalary;
@@ -167,11 +167,11 @@ export default async function PayrollPage({
                       <td className="py-4 px-3 text-center">
                         <div className="flex flex-col items-center">
                           <span className="text-[10px] font-bold text-zinc-300">
-                            {presentDays} Hari
+                            {presentDays} Hari Kerja
                           </span>
 
                           <span className="text-[8px] text-zinc-550 font-bold mt-0.5 uppercase tracking-wider">
-                            Telat: {emp.totalLate} • Cuti: {emp.totalLeave}
+                            Absen: {emp.totalOnTime + emp.totalLate} Shift • Telat: {emp.totalLate}
                           </span>
                         </div>
                       </td>

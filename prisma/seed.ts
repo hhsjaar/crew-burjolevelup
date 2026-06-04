@@ -27,6 +27,7 @@ async function main() {
   await prisma.leaveRequest.deleteMany({});
   await prisma.task.deleteMany({});
   await prisma.attendance.deleteMany({});
+  await prisma.shift.deleteMany({});
   await prisma.employee.deleteMany({});
 
   // Hash passwords
@@ -76,6 +77,28 @@ async function main() {
 
   console.log("Employees created: Owner burjolevelup, hamam, yogi, and rian");
 
+  // Create Shifts
+  const shiftPagi1 = await prisma.shift.create({
+    data: { name: "Shift Pagi 1", startTime: "09:00" },
+  });
+  const shiftPagi2 = await prisma.shift.create({
+    data: { name: "Shift Pagi 2", startTime: "10:30" },
+  });
+  const shiftSiang1 = await prisma.shift.create({
+    data: { name: "Shift Siang 1", startTime: "11:00" },
+  });
+  const shiftSiang2 = await prisma.shift.create({
+    data: { name: "Shift Siang 2", startTime: "12:00" },
+  });
+  const shiftSore = await prisma.shift.create({
+    data: { name: "Shift Sore", startTime: "15:00" },
+  });
+  const shiftMalam = await prisma.shift.create({
+    data: { name: "Shift Malam", startTime: "19:30" },
+  });
+
+  console.log("Default shifts created: Shift Pagi 1, Shift Pagi 2, Shift Siang 1, Shift Siang 2, Shift Sore, Shift Malam");
+
   // Create attendance history for the past 5 days (excluding today)
   const today = new Date();
   const pastDays = [];
@@ -91,17 +114,14 @@ async function main() {
     const day = pastDays[i];
     const isLate = i === 2; // Make one day late
     const clockInTime = new Date(day.dateObj);
-    clockInTime.setHours(isLate ? 8 : 7, isLate ? 45 : 30, 0); // 07:30 (On Time) or 08:45 (Late)
-
-    const clockOutTime = new Date(day.dateObj);
-    clockOutTime.setHours(17, 0, 0); // 17:00
+    clockInTime.setHours(isLate ? 9 : 8, isLate ? 20 : 45, 0); // 08:45 (On Time) or 09:20 (Late) for Shift Pagi 1 (09:00)
 
     await prisma.attendance.create({
       data: {
         employeeId: hamam.id,
         date: day.date,
+        shiftId: shiftPagi1.id,
         clockIn: clockInTime,
-        clockOut: clockOutTime,
         status: isLate ? AttendanceStatus.LATE : AttendanceStatus.ON_TIME,
         notes: isLate ? "Terjebak macet di jalan layang" : "Datang lebih awal",
       },
@@ -134,17 +154,14 @@ async function main() {
       });
     } else {
       const clockInTime = new Date(day.dateObj);
-      clockInTime.setHours(7, 45, 0); // 07:45 (On Time)
-
-      const clockOutTime = new Date(day.dateObj);
-      clockOutTime.setHours(17, 15, 0); // 17:15
+      clockInTime.setHours(10, 15, 0); // 10:15 (On Time) for Shift Pagi 2 (10:30)
 
       await prisma.attendance.create({
         data: {
           employeeId: yogi.id,
           date: day.date,
+          shiftId: shiftPagi2.id,
           clockIn: clockInTime,
-          clockOut: clockOutTime,
           status: AttendanceStatus.ON_TIME,
           notes: "Tepat waktu",
         },

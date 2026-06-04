@@ -21,7 +21,8 @@ export default async function AttendancePage() {
             name: true,
             email: true,
           }
-        }
+        },
+        shift: true,
       },
       orderBy: { clockIn: "desc" }
     });
@@ -79,10 +80,11 @@ export default async function AttendancePage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-900 text-zinc-500 font-bold uppercase tracking-wider text-[9px]">
+                  <tr className="border-b border-zinc-900 text-zinc-550 font-bold uppercase tracking-wider text-[9px]">
                     <th className="py-2.5 px-4">Tanggal Kerja</th>
-                    <th className="py-2.5 px-4">Jam Masuk (Clock-In)</th>
-                    <th className="py-2.5 px-4">Jam Pulang (Clock-Out)</th>
+                    <th className="py-2.5 px-4">Shift</th>
+                    <th className="py-2.5 px-4">Jam Masuk</th>
+                    <th className="py-2.5 px-4 text-center">Status</th>
                     <th className="py-2.5 px-4 max-w-xs">Catatan & Memo</th>
                   </tr>
                 </thead>
@@ -97,14 +99,28 @@ export default async function AttendancePage() {
                           year: "numeric",
                         })}
                       </td>
+                      <td className="py-4 px-4 text-zinc-300 font-semibold">
+                        <span className="block font-bold text-zinc-200">{record.shift?.name || "-"}</span>
+                        <span className="text-[10px] text-zinc-500">{record.shift?.startTime ? `${record.shift.startTime} WIB` : ""}</span>
+                      </td>
                       <td className="py-4 px-4 font-semibold text-zinc-200 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-zinc-600" />
+                        <Clock className="w-3.5 h-3.5 text-zinc-650" />
                         {record.clockIn ? new Date(record.clockIn).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : "-- : --"}
                       </td>
-                      <td className="py-4 px-4 font-semibold text-zinc-400">
-                        {record.clockOut ? new Date(record.clockOut).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }) : "-- : --"}
+                      <td className="py-4 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase border ${
+                            record.status === "LATE"
+                              ? "bg-red-500/5 text-red-400 border-red-500/10"
+                              : record.status === "LEAVE"
+                              ? "bg-zinc-900/60 text-zinc-400 border-zinc-800"
+                              : "bg-white/5 text-white border-white/20"
+                          }`}
+                        >
+                          {record.status === "LATE" ? "Terlambat" : record.status === "LEAVE" ? "Izin/Cuti" : record.status === "ABSENT" ? "Alpa" : "Tepat Waktu"}
+                        </span>
                       </td>
-                      <td className="py-4 px-4 text-zinc-400 italic max-w-xs truncate">
+                      <td className="py-4 px-4 text-zinc-400 italic max-w-xs truncate" title={record.notes || ""}>
                         {record.notes || "-"}
                       </td>
                     </tr>

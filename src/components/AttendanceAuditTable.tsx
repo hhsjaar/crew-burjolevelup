@@ -35,11 +35,12 @@ export default function AttendanceAuditTable({ attendances }: AttendanceAuditTab
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-zinc-900 text-zinc-500 font-bold uppercase tracking-wider text-[9px]">
+              <tr className="border-b border-zinc-900 text-zinc-550 font-bold uppercase tracking-wider text-[9px]">
                 <th className="py-2.5 px-3">Karyawan</th>
                 <th className="py-2.5 px-3">Tanggal</th>
-                <th className="py-2.5 px-3">Clock-In (Masuk)</th>
-                <th className="py-2.5 px-3">Clock-Out (Pulang)</th>
+                <th className="py-2.5 px-3">Shift</th>
+                <th className="py-2.5 px-3">Jam Absen</th>
+                <th className="py-2.5 px-3 text-center">Status</th>
                 <th className="py-2.5 px-3 max-w-[200px]">Catatan / Alasan</th>
               </tr>
             </thead>
@@ -58,17 +59,23 @@ export default function AttendanceAuditTable({ attendances }: AttendanceAuditTab
                     })}
                   </td>
                   
+                  {/* Shift info */}
+                  <td className="py-4 px-3 font-semibold text-zinc-300">
+                    <span className="font-bold text-zinc-300 block">{att.shift?.name || "-"}</span>
+                    <span className="text-[10px] text-zinc-500">{att.shift?.startTime ? `${att.shift.startTime} WIB` : ""}</span>
+                  </td>
+
                   {/* Clock In Audit info */}
                   <td className="py-4 px-3 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
-                      <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                      <Clock className="w-3.5 h-3.5 text-zinc-550" />
                       {formatTime(att.clockIn)}
                     </div>
                     <div className="flex items-center gap-2">
                       {att.clockInSelfie ? (
                         <button
                           onClick={() => setSelectedSelfie({ name: att.employee.name, type: "Masuk", image: att.clockInSelfie })}
-                          className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 overflow-hidden hover:border-zinc-500 transition-colors cursor-pointer shrink-0"
+                          className="w-8 h-8 rounded bg-zinc-900 border border-zinc-850 overflow-hidden hover:border-zinc-500 transition-colors cursor-pointer shrink-0"
                         >
                           <img src={att.clockInSelfie} alt="Selfie Clock In" className="w-full h-full object-cover" />
                         </button>
@@ -81,7 +88,7 @@ export default function AttendanceAuditTable({ attendances }: AttendanceAuditTab
                           href={`https://www.google.com/maps/search/?api=1&query=${att.clockInLatitude},${att.clockInLongitude}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                          className="p-1 rounded bg-zinc-900 border border-zinc-850 text-zinc-400 hover:text-white transition-colors"
                           title="Lihat Lokasi GPS Masuk"
                         >
                           <MapPin className="w-3.5 h-3.5" />
@@ -92,44 +99,27 @@ export default function AttendanceAuditTable({ attendances }: AttendanceAuditTab
                     </div>
                   </td>
 
-                  {/* Clock Out Audit info */}
-                  <td className="py-4 px-3 space-y-1.5">
-                    {att.clockOut ? (
-                      <>
-                        <div className="flex items-center gap-1.5 text-zinc-400 font-medium">
-                          <Clock className="w-3.5 h-3.5 text-zinc-600" />
-                          {formatTime(att.clockOut)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {att.clockOutSelfie ? (
-                            <button
-                              onClick={() => setSelectedSelfie({ name: att.employee.name, type: "Pulang", image: att.clockOutSelfie })}
-                              className="w-8 h-8 rounded bg-zinc-900 border border-zinc-800 overflow-hidden hover:border-zinc-500 transition-colors cursor-pointer shrink-0"
-                            >
-                              <img src={att.clockOutSelfie} alt="Selfie Clock Out" className="w-full h-full object-cover" />
-                            </button>
-                          ) : (
-                            <span className="text-[8px] bg-zinc-900 text-zinc-650 px-1 py-0.5 rounded border border-zinc-900 shrink-0">NO SELFIE</span>
-                          )}
-                          
-                          {att.clockOutLatitude && att.clockOutLongitude ? (
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${att.clockOutLatitude},${att.clockOutLongitude}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
-                              title="Lihat Lokasi GPS Pulang"
-                            >
-                              <MapPin className="w-3.5 h-3.5" />
-                            </a>
-                          ) : (
-                            <span className="text-[8px] text-zinc-650">NO GPS</span>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-zinc-600 italic">Belum Absen Pulang</span>
-                    )}
+                  {/* Status Info */}
+                  <td className="py-4 px-3 text-center">
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[8.5px] font-extrabold uppercase border ${
+                        att.status === "LATE"
+                          ? "bg-red-500/5 text-red-400 border-red-500/10"
+                          : att.status === "LEAVE"
+                          ? "bg-zinc-900/60 text-zinc-400 border-zinc-800"
+                          : "bg-white/5 text-white border-white/20"
+                      }`}
+                    >
+                      {att.status === "LATE" ? (
+                        "Terlambat"
+                      ) : att.status === "LEAVE" ? (
+                        "Izin/Cuti"
+                      ) : att.status === "ABSENT" ? (
+                        "Alpa"
+                      ) : (
+                        "Tepat Waktu"
+                      )}
+                    </span>
                   </td>
 
                   {/* Notes */}

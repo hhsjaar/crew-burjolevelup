@@ -5,7 +5,17 @@ import { getSession } from "@/lib/jwt";
 
 import { revalidatePath } from "next/cache";
 
-export interface EmployeePayrollRecap { employeeId: string; name: string; email: string; dailySalary: number; totalOnTime: number; totalLate: number; totalLeave: number; totalAbsent: number; }
+export interface EmployeePayrollRecap {
+  employeeId: string;
+  name: string;
+  email: string;
+  dailySalary: number;
+  totalOnTime: number;
+  totalLate: number;
+  totalLeave: number;
+  totalAbsent: number;
+  presentDays: number;
+}
 
 export async function getMonthlyRecap(monthStr: string): Promise<{ error?: string; recaps?: EmployeePayrollRecap[] }> {
   // monthStr format: "YYYY-MM" (e.g., "2026-05")
@@ -34,26 +44,36 @@ export async function getMonthlyRecap(monthStr: string): Promise<{ error?: strin
         },
       });
 
+      const datesWithPresence = new Set<string>();
       let totalOnTime = 0;
       let totalLate = 0;
       let totalLeave = 0;
       let totalAbsent = 0;
 
       attendances.forEach((att) => {
-        if (att.status === "ON_TIME") totalOnTime++;
-        else if (att.status === "LATE") totalLate++;
-        else if (att.status === "LEAVE") totalLeave++;
-        else if (att.status === "ABSENT") totalAbsent++;
+        if (att.status === "ON_TIME") {
+          totalOnTime++;
+          datesWithPresence.add(att.date);
+        } else if (att.status === "LATE") {
+          totalLate++;
+          datesWithPresence.add(att.date);
+        } else if (att.status === "LEAVE") {
+          totalLeave++;
+        } else if (att.status === "ABSENT") {
+          totalAbsent++;
+        }
       });
 
       recaps.push({
         employeeId: employee.id,
         name: employee.name,
         email: employee.email,
-        dailySalary: employee.dailySalary, totalOnTime,
+        dailySalary: employee.dailySalary,
+        totalOnTime,
         totalLate,
         totalLeave,
         totalAbsent,
+        presentDays: datesWithPresence.size,
       });
     }
 

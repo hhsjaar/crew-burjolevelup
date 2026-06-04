@@ -32,6 +32,11 @@ interface Attendance {
   clockOutLongitude: number | null;
   clockOutSelfie: string | null;
   employee: Employee;
+  shift?: {
+    id: string;
+    name: string;
+    startTime: string;
+  } | null;
 }
 
 interface AdminAttendanceCalendarProps {
@@ -312,11 +317,11 @@ export default function AdminAttendanceCalendar({ allAttendances }: AdminAttenda
                           
                           <div className="flex items-center gap-3 shrink-0">
                             <div className="flex items-center gap-2 text-[9.5px] text-zinc-450 font-bold bg-zinc-950 px-2.5 py-1 rounded border border-zinc-900 leading-none">
-                              <span className="text-[7.5px] font-extrabold text-zinc-550 uppercase tracking-widest">In</span>
-                              <span className="text-zinc-200 font-bold">{formatTime(att.clockIn)}</span>
+                              <span className="text-[7.5px] font-extrabold text-zinc-550 uppercase tracking-widest">Shift</span>
+                              <span className="text-zinc-200 font-bold">{att.shift?.name || "-"}</span>
                               <span className="text-zinc-800">|</span>
-                              <span className="text-[7.5px] font-extrabold text-zinc-550 uppercase tracking-widest">Out</span>
-                              <span className={`${att.clockOut ? "text-zinc-350" : "text-zinc-650 font-normal italic"}`}>{formatTime(att.clockOut)}</span>
+                              <span className="text-[7.5px] font-extrabold text-zinc-550 uppercase tracking-widest">Jam</span>
+                              <span className="text-zinc-200 font-bold">{formatTime(att.clockIn)}</span>
                             </div>
                             
                             {/* Chevron Indicator */}
@@ -336,12 +341,34 @@ export default function AdminAttendanceCalendar({ allAttendances }: AdminAttenda
                         {/* Collapsible Details Body */}
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-1 border-t border-zinc-900/60 bg-zinc-950/20 space-y-3.5 animate-slide-down">
-                            {/* Clock In & Clock Out details */}
-                            <div className="grid grid-cols-2 gap-3.5 py-1 pt-3">
+                            {/* Shift & Time Details */}
+                            <div className="p-3 bg-zinc-950 rounded-lg border border-zinc-900 text-[11px] text-zinc-300 space-y-1.5 pt-3">
+                              <div className="flex justify-between">
+                                <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">Shift Kerja:</span>
+                                <span className="font-semibold text-zinc-200">{att.shift?.name || "-"} ({att.shift?.startTime ? `${att.shift.startTime} WIB` : ""})</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest">Status Presensi:</span>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-extrabold uppercase border ${
+                                    att.status === "LATE"
+                                      ? "bg-red-500/5 text-red-400 border-red-500/10"
+                                      : att.status === "LEAVE"
+                                      ? "bg-zinc-900/60 text-zinc-400 border-zinc-800"
+                                      : "bg-white/5 text-white border-white/20"
+                                  }`}
+                                >
+                                  {att.status === "LATE" ? "Terlambat" : att.status === "LEAVE" ? "Izin/Cuti" : att.status === "ABSENT" ? "Alpa" : "Tepat Waktu"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Clock In details */}
+                            <div className="grid grid-cols-1 py-1 pt-3">
                               {/* Clock In */}
                               <div className="space-y-2">
                                 <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block">CLOCK-IN MASUK</span>
-                                <div className="flex items-center gap-1.5 text-zinc-355 font-semibold text-[11px]">
+                                <div className="flex items-center gap-1.5 text-zinc-350 font-semibold text-[11px]">
                                   <Clock className="w-3.5 h-3.5 text-zinc-550" />
                                   <span>{formatTime(att.clockIn)}</span>
                                 </div>
@@ -376,52 +403,6 @@ export default function AdminAttendanceCalendar({ allAttendances }: AdminAttenda
                                     <span className="text-[7px] text-zinc-650">NO GPS</span>
                                   )}
                                 </div>
-                              </div>
-
-                              {/* Clock Out */}
-                              <div className="space-y-2 border-l border-zinc-900/60 pl-3">
-                                <span className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest block">CLOCK-OUT PULANG</span>
-                                {att.clockOut ? (
-                                  <>
-                                    <div className="flex items-center gap-1.5 text-zinc-350 font-semibold text-[11px]">
-                                      <Clock className="w-3.5 h-3.5 text-zinc-650" />
-                                      <span>{formatTime(att.clockOut)}</span>
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-2">
-                                      {att.clockOutSelfie ? (
-                                        <button
-                                          onClick={() => setSelectedSelfie({
-                                            name: att.employee.name,
-                                            type: "Pulang",
-                                            image: att.clockOutSelfie!
-                                          })}
-                                          className="w-7 h-7 rounded bg-zinc-900 border border-zinc-850 overflow-hidden hover:border-zinc-500 transition-colors cursor-pointer shrink-0"
-                                        >
-                                          <img src={att.clockOutSelfie} alt="Selfie Pulang" className="w-full h-full object-cover" />
-                                        </button>
-                                      ) : (
-                                        <span className="text-[7px] text-zinc-650 font-bold bg-zinc-900 border border-zinc-900 px-1 py-0.5 rounded">NO PHOTO</span>
-                                      )}
-
-                                      {att.clockOutLatitude && att.clockOutLongitude ? (
-                                        <a
-                                          href={`https://www.google.com/maps/search/?api=1&query=${att.clockOutLatitude},${att.clockOutLongitude}`}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="p-1 rounded bg-zinc-900 border border-zinc-850 text-zinc-400 hover:text-white transition-colors"
-                                          title="Buka Peta Pulang"
-                                        >
-                                          <MapPin className="w-3.5 h-3.5" />
-                                        </a>
-                                      ) : (
-                                        <span className="text-[7px] text-zinc-650">NO GPS</span>
-                                      )}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <span className="text-zinc-600 italic text-[10px] block pt-1.5">Belum Pulang</span>
-                                )}
                               </div>
                             </div>
 
