@@ -16,6 +16,8 @@ import {
   Menu,
   X,
   Wallet,
+  MessageSquare,
+  ShoppingBag,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -61,6 +63,12 @@ export default function Sidebar({ user, claimableCount = 0 }: SidebarProps) {
       badge: user.role === "EMPLOYEE" && claimableCount > 0 ? claimableCount : undefined,
     },
     {
+      label: "Daftar Belanja",
+      icon: ShoppingBag,
+      href: "/dashboard/shopping",
+      adminOnly: false,
+    },
+    {
       label: "Izin & Cuti",
       icon: FileText,
       href: "/dashboard/leave",
@@ -82,6 +90,12 @@ export default function Sidebar({ user, claimableCount = 0 }: SidebarProps) {
       label: "Rekap & Gaji",
       icon: DollarSign,
       href: "/dashboard/admin/payroll",
+      adminOnly: true,
+    },
+    {
+      label: "Pengaturan WA",
+      icon: MessageSquare,
+      href: "/dashboard/admin/whatsapp",
       adminOnly: true,
     },
   ];

@@ -11,6 +11,9 @@ import {
   createTask,
   deleteAllTasks,
   excludeTaskDate,
+  startTaskTimer,
+  pauseTaskTimer,
+  resetTaskTimer,
 } from "@/actions/tasks";
 import {
   Calendar as CalendarIcon,
@@ -51,6 +54,9 @@ interface Task {
     name: string;
     email: string;
   } | null;
+  timerDuration?: number | null;
+  timerStartedAt?: Date | string | null;
+  timerNotified?: boolean;
 }
 
 interface Employee {
@@ -95,6 +101,9 @@ export default function CalendarJobdeskManager({
   const detailsRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  const [timerInputMinutes, setTimerInputMinutes] = useState(15);
+  const [tick, setTick] = useState(0);
+
   // Combine routine tasks and claimed/claimable tasks
   const [allTasks, setAllTasks] = useState<Task[]>([]);
 
@@ -115,6 +124,143 @@ export default function CalendarJobdeskManager({
     setTasks(initialTasks);
     setClaimableTasks(initialClaimableTasks);
   }, [initialTasks, initialClaimableTasks]);
+
+  // Helper for beeping
+  const playBeep = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        setTimeout(() => {
+          oscillator.stop();
+          audioCtx.close();
+        }, 800);
+      } catch (e) {
+        console.error("Failed to play audio", e);
+      }
+    }
+  };
+
+  const getTaskRemainingSeconds = (task: Task) => {
+    if (!task.timerDuration) return 0;
+    if (!task.timerStartedAt) return task.timerDuration;
+    
+    const startedTime = new Date(task.timerStartedAt).getTime();
+    const elapsedSeconds = Math.floor((Date.now() - startedTime) / 1000);
+    const remaining = task.timerDuration - elapsedSeconds;
+    return remaining > 0 ? remaining : 0;
+  };
+
+  // Timer Tick Side-Effect
+  useEffect(() => {
+    const hasActiveTimers = allTasks.some(t => t.timerStartedAt && t.status !== "COMPLETED");
+    if (hasActiveTimers) {
+      const interval = setInterval(() => {
+        setTick((t) => t + 1);
+        
+        allTasks.forEach(t => {
+          if (t.timerStartedAt && t.status !== "COMPLETED" && t.timerDuration) {
+            const startedTime = new Date(t.timerStartedAt).getTime();
+            const elapsed = Math.floor((Date.now() - startedTime) / 1000);
+            if (elapsed === t.timerDuration) {
+              playBeep();
+              toast.success(`Timer untuk tugas "${t.title}" telah selesai!`);
+            }
+          }
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [allTasks]);
+
+  const handleStartTimer = async (durationInSeconds: number) => {
+    if (!selectedTask) return;
+    try {
+      const res = await startTaskTimer(selectedTask.id, durationInSeconds);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Timer dijalankan!");
+        setAllTasks(prev => prev.map(t => t.id === selectedTask.id ? {
+          ...t,
+          timerDuration: durationInSeconds,
+          timerStartedAt: new Date().toISOString(),
+          timerNotified: false
+        } : t));
+        setSelectedTask((prev: any) => prev ? {
+          ...prev,
+          timerDuration: durationInSeconds,
+          timerStartedAt: new Date().toISOString(),
+          timerNotified: false
+        } : null);
+      }
+    } catch (err) {
+      toast.error("Gagal menyalakan timer.");
+    }
+  };
+
+  const handlePauseTimer = async () => {
+    if (!selectedTask) return;
+    const remaining = getTaskRemainingSeconds(selectedTask);
+    try {
+      const res = await pauseTaskTimer(selectedTask.id, remaining);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Timer dijeda.");
+        setAllTasks(prev => prev.map(t => t.id === selectedTask.id ? {
+          ...t,
+          timerStartedAt: null,
+          timerDuration: remaining
+        } : t));
+        setSelectedTask((prev: any) => prev ? {
+          ...prev,
+          timerStartedAt: null,
+          timerDuration: remaining
+        } : null);
+      }
+    } catch (err) {
+      toast.error("Gagal menjeda timer.");
+    }
+  };
+
+  const handleResetTimer = async () => {
+    if (!selectedTask) return;
+    try {
+      const res = await resetTaskTimer(selectedTask.id);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Timer diatur ulang.");
+        setAllTasks(prev => prev.map(t => t.id === selectedTask.id ? {
+          ...t,
+          timerStartedAt: null,
+          timerDuration: null,
+          timerNotified: false
+        } : t));
+        setSelectedTask((prev: any) => prev ? {
+          ...prev,
+          timerStartedAt: null,
+          timerDuration: null,
+          timerNotified: false
+        } : null);
+      }
+    } catch (err) {
+      toast.error("Gagal mengatur ulang timer.");
+    }
+  };
+
+
 
   // Calendar calculations
   const year = currentMonth.getFullYear();
@@ -302,8 +448,9 @@ export default function CalendarJobdeskManager({
 
   // Employee claims FCFS task
   const handleClaim = async (taskId: string) => {
+    const dateStr = getLocalDateString(selectedDate);
     try {
-      const res = await claimTask(taskId);
+      const res = await claimTask(taskId, dateStr);
       if (res.error) {
         toast.error(res.error);
       } else {
@@ -315,13 +462,32 @@ export default function CalendarJobdeskManager({
         });
 
         // Update local tasks
-        setTasks((prev) =>
-          prev.map((t) =>
-            t.id === taskId
-              ? { ...t, employeeId: userId, status: "IN_PROGRESS" }
-              : t
-          )
-        );
+        if (res.updatedRecurringTask && res.task) {
+          const newOnceTask = res.task;
+          const updatedRecurring = res.updatedRecurringTask;
+
+          setTasks((prev) => {
+            const updatedList = prev.map((t) =>
+              t.id === updatedRecurring.id ? updatedRecurring : t
+            );
+            return [...updatedList, newOnceTask];
+          });
+
+          setClaimableTasks((prev) =>
+            prev.map((t) =>
+              t.id === updatedRecurring.id ? updatedRecurring : t
+            )
+          );
+        } else {
+          // Normal claim (non-recurring ONCE tasks)
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === taskId
+                ? { ...t, employeeId: userId, status: "IN_PROGRESS" }
+                : t
+            )
+          );
+        }
       }
     } catch (err) {
       toast.error("Gagal mengklaim tugas.");
@@ -1245,6 +1411,123 @@ export default function CalendarJobdeskManager({
                 </div>
               )}
 
+              {/* TIMER SECTION */}
+              {selectedTask.employeeId === userId && selectedTask.status !== "COMPLETED" && (
+                <div className="p-4 bg-zinc-950/60 border border-zinc-900 rounded-xl space-y-3 mb-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-zinc-550 uppercase tracking-widest flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-zinc-400" /> Timer Presisi Jobdesk
+                    </span>
+                    {selectedTask.timerStartedAt && (
+                      <span className="text-[8px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1.5 py-0.5 rounded font-extrabold uppercase animate-pulse">
+                        Timer Aktif
+                      </span>
+                    )}
+                  </div>
+
+                  {(() => {
+                    const remaining = getTaskRemainingSeconds(selectedTask);
+                    const isTimerRunning = !!selectedTask.timerStartedAt && remaining > 0;
+                    const isTimerPaused = !selectedTask.timerStartedAt && (selectedTask.timerDuration || 0) > 0;
+                    const isTimerInactive = !selectedTask.timerStartedAt && !(selectedTask.timerDuration || 0);
+
+                    const formatTime = (secs: number) => {
+                      const m = Math.floor(secs / 60);
+                      const s = secs % 60;
+                      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+                    };
+
+                    return (
+                      <div className="flex flex-col items-center space-y-3">
+                        {!isTimerInactive ? (
+                          <div className={`text-3xl font-mono font-bold tracking-widest ${isTimerRunning ? 'text-white animate-pulse' : 'text-zinc-555'}`}>
+                            {formatTime(remaining)}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              max="1440"
+                              value={timerInputMinutes}
+                              onChange={(e) => setTimerInputMinutes(Math.max(1, Number(e.target.value)))}
+                              className="w-16 px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-center text-xs text-white"
+                            />
+                            <span className="text-xs text-zinc-450">Menit</span>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 w-full">
+                          {isTimerInactive && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStartTimer(timerInputMinutes * 60)}
+                                className="flex-1 py-1.5 bg-white text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider cursor-pointer hover:bg-zinc-200"
+                              >
+                                Mulai
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTimerInputMinutes(5)}
+                                className="py-1.5 px-2.5 bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-350 font-bold rounded-lg uppercase cursor-pointer hover:bg-zinc-800"
+                              >
+                                5m
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setTimerInputMinutes(15)}
+                                className="py-1.5 px-2.5 bg-zinc-900 border border-zinc-800 text-[10px] text-zinc-350 font-bold rounded-lg uppercase cursor-pointer hover:bg-zinc-800"
+                              >
+                                15m
+                              </button>
+                            </>
+                          )}
+
+                          {isTimerRunning && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={handlePauseTimer}
+                                className="flex-1 py-1.5 bg-zinc-900 border border-zinc-800 text-zinc-350 font-extrabold text-[10px] rounded-lg uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
+                              >
+                                Jeda
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleResetTimer}
+                                className="flex-1 py-1.5 bg-red-955/20 border border-red-900/40 text-red-400 font-bold text-[10px] rounded-lg uppercase tracking-wider cursor-pointer hover:bg-red-955/30"
+                              >
+                                Reset
+                              </button>
+                            </>
+                          )}
+
+                          {isTimerPaused && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleStartTimer(remaining)}
+                                className="flex-1 py-1.5 bg-white text-black font-extrabold text-[10px] rounded-lg uppercase tracking-wider cursor-pointer hover:bg-zinc-200"
+                              >
+                                Lanjutkan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleResetTimer}
+                                className="flex-1 py-1.5 bg-zinc-900 border border-zinc-800 text-zinc-450 font-bold text-[10px] rounded-lg uppercase tracking-wider cursor-pointer hover:bg-zinc-800"
+                              >
+                                Reset
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               {!isAdmin && selectedTask.employeeId === userId && (
                 <div className="pt-1">
                   <button
@@ -1331,6 +1614,39 @@ export default function CalendarJobdeskManager({
           </div>
         </div>
       )}
+
+      {/* FLOATING TIMER WIDGET (BACKGROUND RUNNING TIMER) */}
+      {(() => {
+        const runningTimerTask = allTasks.find(
+          (t) => t.timerStartedAt && t.status !== "COMPLETED" && getTaskRemainingSeconds(t) > 0
+        );
+
+        if (!runningTimerTask || (drawerOpen && selectedTask?.id === runningTimerTask.id)) return null;
+
+        const remaining = getTaskRemainingSeconds(runningTimerTask);
+        const formatTime = (secs: number) => {
+          const m = Math.floor(secs / 60);
+          const s = secs % 60;
+          return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        };
+
+        return (
+          <div 
+            onClick={() => openDrawer(runningTimerTask)}
+            className="fixed bottom-20 right-4 md:right-8 bg-zinc-950/80 backdrop-blur-md border border-indigo-500/30 p-3.5 rounded-xl flex items-center gap-3.5 cursor-pointer shadow-2xl z-40 animate-slide-in hover:border-indigo-400 transition-all group max-w-xs text-left"
+          >
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+              <Clock className="w-4 h-4 animate-spin-slow" />
+            </div>
+            
+            <div className="min-w-0">
+              <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest block">Timer Berjalan</span>
+              <h4 className="text-[10px] text-zinc-300 font-semibold truncate mt-0.5 max-w-[150px]">{runningTimerTask.title}</h4>
+              <span className="text-sm font-mono font-bold text-white tracking-widest block mt-0.5">{formatTime(remaining)}</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

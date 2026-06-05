@@ -26,6 +26,7 @@ export async function getAllEmployeesAdmin() {
         name: true,
         role: true,
         dailySalary: true,
+        phone: true,
         createdAt: true,
       },
       orderBy: [
@@ -48,6 +49,7 @@ export async function adminCreateEmployee(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const roleInput = formData.get("role") as string; // ADMIN or EMPLOYEE
   const dailySalaryInput = formData.get("dailySalary") as string;
+  const phone = (formData.get("phone") as string)?.trim() || null;
 
   if (!email || !password || !name) {
     return { error: "ID Pengguna, Kata Sandi, dan Nama wajib diisi." };
@@ -73,6 +75,7 @@ export async function adminCreateEmployee(formData: FormData) {
         name,
         role,
         dailySalary,
+        phone,
       },
     });
 
@@ -94,6 +97,7 @@ export async function adminUpdateEmployee(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const roleInput = formData.get("role") as string;
   const dailySalaryInput = formData.get("dailySalary") as string;
+  const phone = (formData.get("phone") as string)?.trim() || null;
 
   if (!id || !email || !name) {
     return { error: "ID, ID Pengguna, dan Nama wajib diisi." };
@@ -120,6 +124,7 @@ export async function adminUpdateEmployee(formData: FormData) {
       name,
       role,
       dailySalary,
+      phone,
     };
 
     // If new password is provided, hash and update it

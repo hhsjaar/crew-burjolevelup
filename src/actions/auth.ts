@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { setSession, clearSession, getSession } from "@/lib/jwt";
 import { revalidatePath } from "next/cache";
+import { getWhatsAppSettings } from "./whatsappSettings";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export async function login(formData: FormData) {
   const email = formData.get("email") as string;
@@ -45,6 +47,60 @@ export async function login(formData: FormData) {
     });
 
     console.log("[AUTH ACTION] Session cookie set successfully for:", employee.name);
+
+    // Kirim notifikasi WA berisi tugas hari ini jika karyawan login
+    if (employee.phone && employee.role === "EMPLOYEE") {
+      const phone = employee.phone;
+      (async () => {
+        try {
+          const { enabled } = await getWhatsAppSettings();
+          if (enabled) {
+            const today = new Date();
+            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+            const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+
+            const employeeTasks = await db.task.findMany({
+              where: {
+                employeeId: employee.id,
+                status: { not: "COMPLETED" },
+                OR: [
+                  { dueDate: null },
+                  {
+                    dueDate: {
+                      gte: startOfDay,
+                      lte: endOfDay,
+                    },
+                  },
+                ],
+              },
+              orderBy: { createdAt: "desc" },
+            });
+
+            let message = `🔔 *Selamat Datang, ${employee.name}!*\n\n` +
+              `Anda baru saja login ke sistem Burjolevelup.\n\n`;
+
+            if (employeeTasks.length > 0) {
+              message += `Berikut adalah daftar tugas/jobdesk Anda hari ini yang perlu diselesaikan:\n\n`;
+              employeeTasks.forEach((t, i) => {
+                const dueText = t.dueDate 
+                  ? new Date(t.dueDate).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) + " WIB" 
+                  : "Tanpa batas waktu";
+                message += `${i + 1}. *${t.title}*\n`;
+                if (t.description) message += `   Deskripsi: ${t.description}\n`;
+                message += `   Waktu Pelaksanaan: ${dueText}\n\n`;
+              });
+              message += `Selamat bekerja, tetap semangat dan berikan pelayanan terbaik! 💪`;
+            } else {
+              message += `Hari ini Anda tidak memiliki tugas pending khusus. Tetap semangat kerja dan menjaga kebersihan outlet! ✨`;
+            }
+
+            await sendWhatsAppMessage(phone, message);
+          }
+        } catch (err) {
+          console.error("Gagal mengirim notifikasi login WA:", err);
+        }
+      })();
+    }
 
     revalidatePath("/dashboard");
     return { success: true, role: employee.role };

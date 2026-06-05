@@ -17,6 +17,7 @@ import {
   DollarSign,
   Briefcase,
   AlertTriangle,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +27,7 @@ interface Employee {
   name: string;
   role: string;
   dailySalary: number;
+  phone?: string | null;
   createdAt: Date;
 }
 
@@ -63,7 +65,8 @@ export default function UsersManager({
   const filteredEmployees = employees.filter(
     (emp) =>
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchQuery.toLowerCase())
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (emp.phone || "").includes(searchQuery)
   );
 
   // Handlers
@@ -79,11 +82,12 @@ export default function UsersManager({
         } else {
           toast.success("Akun karyawan baru berhasil dibuat!");
           setIsAddOpen(false);
-          // Refresh list by inserting locally (we also revalidated the path)
+          
           const newEmail = formData.get("email") as string;
           const newName = formData.get("name") as string;
           const newRole = formData.get("role") as string;
           const newSalary = parseFloat(formData.get("dailySalary") as string) || 100000;
+          const newPhone = formData.get("phone") as string;
           
           setEmployees((prev) => [
             ...prev,
@@ -93,6 +97,7 @@ export default function UsersManager({
               name: newName,
               role: newRole,
               dailySalary: newSalary,
+              phone: newPhone || null,
               createdAt: new Date(),
             },
           ]);
@@ -118,11 +123,12 @@ export default function UsersManager({
         } else {
           toast.success("Akun berhasil diperbarui!");
           setIsEditOpen(false);
-          // Update locally
+          
           const updatedEmail = formData.get("email") as string;
           const updatedName = formData.get("name") as string;
           const updatedRole = formData.get("role") as string;
           const updatedSalary = parseFloat(formData.get("dailySalary") as string) || 100000;
+          const updatedPhone = formData.get("phone") as string;
 
           setEmployees((prev) =>
             prev.map((emp) =>
@@ -133,6 +139,7 @@ export default function UsersManager({
                     name: updatedName,
                     role: updatedRole,
                     dailySalary: updatedSalary,
+                    phone: updatedPhone || null,
                   }
                 : emp
             )
@@ -183,7 +190,7 @@ export default function UsersManager({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari ID atau nama..."
+            placeholder="Cari ID, nama, atau no WA..."
             className="w-full pl-9 pr-4 py-2 rounded-lg glass-input text-xs"
           />
         </div>
@@ -210,6 +217,7 @@ export default function UsersManager({
                 <tr className="border-b border-zinc-900 text-zinc-500 font-bold uppercase tracking-wider text-[9px] bg-zinc-950/20">
                   <th className="py-3 px-4">Nama Lengkap</th>
                   <th className="py-3 px-4">ID / Username</th>
+                  <th className="py-3 px-4">Nomor WhatsApp</th>
                   <th className="py-3 px-4 text-center">Hak Akses</th>
                   <th className="py-3 px-4 text-right">Gaji Harian</th>
                   <th className="py-3 px-4 text-right">Aksi</th>
@@ -230,6 +238,16 @@ export default function UsersManager({
                       )}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-zinc-450">{emp.email}</td>
+                    <td className="py-3.5 px-4 font-mono text-zinc-350">
+                      {emp.phone ? (
+                        <span className="flex items-center gap-1.5">
+                          <MessageSquare className="w-3.5 h-3.5 text-zinc-500" />
+                          <span>+{emp.phone}</span>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-600 italic">Belum diisi</span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4 text-center">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-extrabold uppercase border ${
@@ -342,6 +360,18 @@ export default function UsersManager({
                   />
                 </div>
 
+                <div>
+                  <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">
+                    Nomor WhatsApp Karyawan
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    placeholder="Contoh: 6285878094821 (Gunakan kode negara tanpa '+')"
+                    className="w-full px-3 py-2.5 rounded-lg glass-input text-xs text-zinc-200"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">
@@ -438,7 +468,7 @@ export default function UsersManager({
                     <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
                       Kata Sandi Baru
                     </label>
-                    <span className="text-[8px] font-bold text-zinc-650 tracking-wider">
+                    <span className="text-[8px] font-bold text-zinc-655 tracking-wider">
                       (KOSONGKAN JIKA TIDAK INGIN DIUBAH)
                     </span>
                   </div>
@@ -447,6 +477,19 @@ export default function UsersManager({
                     name="password"
                     placeholder="Masukkan sandi baru jika ingin diubah"
                     className="w-full px-3 py-2.5 rounded-lg glass-input text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">
+                    Nomor WhatsApp Karyawan
+                  </label>
+                  <input
+                    type="text"
+                    name="phone"
+                    defaultValue={selectedEmployee.phone || ""}
+                    placeholder="Contoh: 6285878094821 (Gunakan kode negara tanpa '+')"
+                    className="w-full px-3 py-2.5 rounded-lg glass-input text-xs text-zinc-200"
                   />
                 </div>
 

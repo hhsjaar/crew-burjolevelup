@@ -2,6 +2,7 @@ import { getCurrentEmployee } from "@/actions/auth";
 import Sidebar from "@/components/Sidebar";
 import { redirect } from "next/navigation";
 import { getClaimableTasks } from "@/actions/tasks";
+import VoiceAssistant from "@/components/VoiceAssistant";
 
 export default async function DashboardLayout({
   children,
@@ -48,6 +49,9 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* Asisten Suara Global (TTS & STT Bawaan Browser) */}
+      <VoiceAssistant user={clientUser} />
     </div>
   );
 }

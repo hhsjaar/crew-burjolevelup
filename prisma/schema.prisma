@@ -57,7 +57,8 @@ model Employee {
   password      String
   name          String
   role          Role           @default(EMPLOYEE)
-  dailySalary   Float @default(100000.0)
+  dailySalary   Float          @default(100000.0)
+  phone         String?        // WhatsApp number
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   attendances   Attendance[]
@@ -67,6 +68,7 @@ model Employee {
   taskComments  TaskComment[]
   privateNotes  PrivateNote[]  @relation("NotesForEmployee")
   createdNotes  PrivateNote[]  @relation("NotesCreatedBy")
+  shoppingItems ShoppingItem[]
 
   @@schema("absensi")
 }
@@ -108,22 +110,28 @@ model Shift {
 }
 
 model Task {
-  id          String        @id @default(uuid())
-  title       String
-  description String?
-  type        TaskType      @default(DAILY)
-  status      TaskStatus    @default(PENDING)
-  dueDate     DateTime?
-  employeeId  String?       // Opsional untuk tugas claimable FCFS sebelum diklaim
-  employee    Employee?     @relation("AssignedTasks", fields: [employeeId], references: [id], onDelete: Cascade)
-  createdById String
-  createdBy   Employee      @relation("CreatedTasks", fields: [createdById], references: [id])
-  isClaimable Boolean       @default(false)
-  claimedAt   DateTime?
-  comments    TaskComment[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  excludedDates String?     // Comma-separated excluded dates in YYYY-MM-DD format
+  id            String        @id @default(uuid())
+  title         String
+  description   String?
+  type          TaskType      @default(DAILY)
+  status        TaskStatus    @default(PENDING)
+  dueDate       DateTime?
+  employeeId    String?       // Opsional untuk tugas claimable FCFS sebelum diklaim
+  employee      Employee?     @relation("AssignedTasks", fields: [employeeId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     Employee      @relation("CreatedTasks", fields: [createdById], references: [id])
+  isClaimable   Boolean       @default(false)
+  claimedAt     DateTime?
+  comments      TaskComment[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  excludedDates String?       // Comma-separated excluded dates in YYYY-MM-DD format
+  
+  // WA Reminders & Timers
+  notifiedH5     Boolean       @default(false)
+  timerDuration  Int?          // Countdown duration in seconds
+  timerStartedAt DateTime?     // Time when the timer started
+  timerNotified  Boolean       @default(false) // Whether WA notification has been sent
 
   @@schema("absensi")
 }
@@ -157,15 +165,42 @@ model TaskComment {
 }
 
 model PrivateNote {
-  id          String   @id @default(uuid())
-  employeeId  String
-  employee    Employee @relation("NotesForEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  id          String    @id @default(uuid())
+  employeeId  String?
+  employee    Employee? @relation("NotesForEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   title       String
   content     String
   createdById String
-  createdBy   Employee @relation("NotesCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy   Employee  @relation("NotesCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  isBroadcast Boolean   @default(false)
+  image       String?   // Base64 string for photo attachment
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@schema("absensi")
+}
+
+model SystemSetting {
+  key       String   @id @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("absensi")
+}
+
+model ShoppingItem {
+  id          String   @id @default(uuid())
+  itemName    String
+  quantity    Float
+  unit        String
+  notes       String?
+  status      String   @default("PENDING") // PENDING, PURCHASED
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@schema("absensi")
 }
+

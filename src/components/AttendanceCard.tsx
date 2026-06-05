@@ -5,6 +5,9 @@ import { clockIn } from "@/actions/attendance";
 import { Camera, MapPin, CheckCircle, Clock, AlertCircle, RefreshCw, X, AlertOctagon } from "lucide-react";
 import { toast } from "sonner";
 
+// Keep global reference to prevent garbage collection cut-off in Chrome
+const activeUtterances: SpeechSynthesisUtterance[] = [];
+
 interface Shift {
   id: string;
   name: string;
@@ -147,6 +150,13 @@ export default function AttendanceCard({ todayAttendances, activeShifts, employe
       return;
     }
 
+    // Unlocking browser audio policy with a synchronous silent utterance
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      const silent = new SpeechSynthesisUtterance(" ");
+      silent.volume = 0;
+      window.speechSynthesis.speak(silent);
+    }
+
     setLoading(true);
     try {
       const res = await clockIn(selectedShift.id, notes, coords.lat, coords.lng, photo);
@@ -155,6 +165,61 @@ export default function AttendanceCard({ todayAttendances, activeShifts, employe
         toast.error(res.error);
       } else {
         toast.success(`Absen masuk ${selectedShift.name} sukses!`);
+        
+        // Pemicu suara sambutan & pembacaan jobdesk bawaan browser (100% gratis & offline-safe)
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+
+          let speechText = `Absensi masuk shift ${selectedShift.name} berhasil dicatat. Selamat bekerja! `;
+          
+          const tasks = (res as any).tasks || [];
+          if (tasks.length > 0) {
+            const taskTitles = tasks.map((t: any, idx: number) => `tugas ke ${idx + 1}, ${t.title}`).join(". ");
+            speechText += `Berikut adalah daftar tugas kamu hari ini: ${taskTitles}. Tetap semangat dan jaga kesehatan!`;
+          } else {
+            speechText += "Hari ini kamu tidak memiliki tugas pending khusus. Tetap semangat!";
+          }
+
+          setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.lang = "id-ID";
+            const voices = window.speechSynthesis.getVoices();
+            const indVoice = voices.find((v) => v.lang.includes("id") || v.lang.includes("ID"));
+            if (indVoice) {
+              utterance.voice = indVoice;
+            }
+
+            // Keep reference to prevent GC cut-off
+            activeUtterances.push(utterance);
+
+            utterance.onend = () => {
+              const idx = activeUtterances.indexOf(utterance);
+              if (idx > -1) activeUtterances.splice(idx, 1);
+            };
+
+            utterance.onerror = (e) => {
+              const idx = activeUtterances.indexOf(utterance);
+              if (idx > -1) activeUtterances.splice(idx, 1);
+
+              console.error("SpeechSynthesis error on clockIn welcome. Code:", e.error, "Event:", e);
+              if (e.error !== "canceled") {
+                const fallback = new SpeechSynthesisUtterance(speechText);
+                activeUtterances.push(fallback);
+                fallback.onend = () => {
+                  const fIdx = activeUtterances.indexOf(fallback);
+                  if (fIdx > -1) activeUtterances.splice(fIdx, 1);
+                };
+                window.speechSynthesis.speak(fallback);
+              }
+            };
+            window.speechSynthesis.speak(utterance);
+          }, 100);
+        }
+
         // Append shift details to updated attendance
         const finalAttendance = {
           ...res.attendance,

@@ -5,9 +5,11 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/jwt";
 
 export async function createPrivateNote(
-  employeeId: string,
+  employeeId: string | null,
   title: string,
-  content: string
+  content: string,
+  isBroadcast: boolean = false,
+  image?: string
 ) {
   const session = await getSession();
   if (!session) {
@@ -15,10 +17,11 @@ export async function createPrivateNote(
   }
 
   const isAdmin = session.role === "ADMIN";
-  const targetEmployeeId = isAdmin ? employeeId : session.id;
+  const actualBroadcast = isAdmin && isBroadcast;
+  const targetEmployeeId = actualBroadcast ? null : (isAdmin ? employeeId : session.id);
 
-  if (!targetEmployeeId) {
-    return { error: "Karyawan target harus ditentukan." };
+  if (!actualBroadcast && !targetEmployeeId) {
+    return { error: "Karyawan target harus ditentukan jika bukan pesan siaran." };
   }
   if (!title || !title.trim()) {
     return { error: "Judul catatan wajib diisi." };
@@ -34,6 +37,8 @@ export async function createPrivateNote(
         title: title.trim(),
         content: content.trim(),
         createdById: session.id,
+        isBroadcast: actualBroadcast,
+        image: image || null,
       },
     });
 
@@ -58,7 +63,12 @@ export async function getEmployeePrivateNotes(employeeId?: string) {
 
   try {
     const notes = await db.privateNote.findMany({
-      where: { employeeId: targetId },
+      where: {
+        OR: [
+          { employeeId: targetId },
+          { isBroadcast: true },
+        ],
+      },
       include: {
         createdBy: {
           select: {

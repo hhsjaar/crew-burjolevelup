@@ -1,0 +1,19 @@
+[2026-06-05T06:14:37.706Z] startTaskTimer called for task f8f5bcae-455c-494f-a5ba-31fc91e83a23 with duration 60s by user Roy
+[2026-06-05T06:14:37.921Z] Database updated for task f8f5bcae-455c-494f-a5ba-31fc91e83a23. Scheduling setTimeout in 60s...
+[2026-06-05T06:15:37.932Z] setTimeout fired for task f8f5bcae-455c-494f-a5ba-31fc91e83a23
+[2026-06-05T06:15:38.883Z] Task state in setTimeout: status=IN_PROGRESS, timerStartedAt=Fri Jun 05 2026 13:14:37 GMT+0700 (Western Indonesia Time), timerNotified=false, employeePhone=6285878094821
+[2026-06-05T06:15:38.883Z] Time comparison: now=1780640138883, expectedEnd=1780640137815, diff=1068ms
+[2026-06-05T06:15:39.002Z] WhatsApp settings: enabled=true
+[2026-06-05T06:15:39.002Z] Sending WhatsApp to 6285878094821...
+[2026-06-05T06:15:39.160Z] WhatsApp send result: success=true, error=undefined
+[2026-06-05T06:15:39.275Z] Successfully updated timerNotified to true in DB for task f8f5bcae-455c-494f-a5ba-31fc91e83a23
+[2026-06-05T06:34:23.803Z] startTaskTimer called for task 7bf0933c-f1a1-48bb-85e7-e96a34e086be with duration 60s by user Roy
+[2026-06-05T06:34:24.030Z] Database updated for task 7bf0933c-f1a1-48bb-85e7-e96a34e086be. Scheduling setTimeout in 60s...
+[2026-06-05T06:35:24.033Z] setTimeout fired for task 7bf0933c-f1a1-48bb-85e7-e96a34e086be
+[2026-06-05T06:35:24.966Z] Task state in setTimeout: status=IN_PROGRESS, timerStartedAt=Fri Jun 05 2026 13:34:23 GMT+0700 (Western Indonesia Time), timerNotified=false, employeePhone=6281932228708
+[2026-06-05T06:35:24.966Z] Time comparison: now=1780641324966, expectedEnd=1780641323916, diff=1050ms
+[2026-06-05T06:35:25.101Z] WhatsApp settings: enabled=true
+[2026-06-05T06:35:25.102Z] Sending WhatsApp to 6281932228708...
+[2026-06-05T06:35:25.239Z] WhatsApp send result: success=true, error=undefined
+[2026-06-05T06:35:25.360Z] Successfully updated timerNotified to true in DB for task 7bf0933c-f1a1-48bb-85e7-e96a34e086be
+[2026-06-05T08:00:23.521Z] scheduleH5Reminder called for task 5eec3cf0-95a2-4144-818c-7a08377d51c4, dueDate=2026-06-05T04:44:55.000Z, delay=-12028521ms

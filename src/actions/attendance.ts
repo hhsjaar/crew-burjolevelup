@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/jwt";
 import { AttendanceStatus } from "@prisma/client";
+import { getWhatsAppSettings } from "./whatsappSettings";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Dapatkan waktu lokal YYYY-MM-DD
 function getLocalDateString(date = new Date()) {
@@ -70,9 +72,59 @@ export async function clockIn(shiftId: string, notes?: string, latitude?: number
       },
     });
 
+    if (status === AttendanceStatus.LATE) {
+      // Kirim notifikasi WA secara async agar tidak menghambat user interface
+      (async () => {
+        try {
+          const { adminNumber, enabled } = await getWhatsAppSettings();
+          if (enabled) {
+            const emp = await db.employee.findUnique({
+              where: { id: session.id },
+              select: { name: true },
+            });
+            const employeeName = emp?.name || "Karyawan";
+            const timeStr = now.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+            
+            const message = `⏰ *Karyawan Terlambat Masuk*\n\n` +
+              `Nama: *${employeeName}*\n` +
+              `Shift: *${shift.name}* (${shift.startTime})\n` +
+              `Jam Absen: *${timeStr} WIB*\n` +
+              `Tanggal: *${todayStr}*\n` +
+              (statusNotes ? `Catatan: _"${statusNotes}"_\n` : "");
+
+            await sendWhatsAppMessage(adminNumber, message);
+          }
+        } catch (err) {
+          console.error("Gagal mengirim notifikasi WA keterlambatan:", err);
+        }
+      })();
+    }
+
+    // Ambil daftar tugas harian/pending karyawan hari ini untuk dibacakan asisten suara
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    const employeeTasks = await db.task.findMany({
+      where: {
+        employeeId: session.id,
+        status: { not: "COMPLETED" },
+        OR: [
+          { dueDate: null },
+          {
+            dueDate: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+          },
+        ],
+      },
+      select: { title: true },
+      orderBy: { createdAt: "asc" },
+    });
+
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/attendance");
-    return { success: true, attendance };
+    return { success: true, attendance, tasks: employeeTasks };
   } catch (error: any) {
     console.error("Clock In error:", error);
     return { error: "Gagal mencatat absensi masuk." };
