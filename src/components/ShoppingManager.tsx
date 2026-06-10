@@ -17,7 +17,8 @@ import {
   Calendar, 
   User, 
   AlertCircle,
-  FileText
+  FileText,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -68,6 +69,8 @@ export default function ShoppingManager({
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "PURCHASED">("ALL");
   const [employeeFilter, setEmployeeFilter] = useState("ALL");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
   const isAdmin = currentEmployee.role === "ADMIN";
 
@@ -155,6 +158,15 @@ export default function ShoppingManager({
     }
   };
 
+  // Date Comparison Helper
+  const isSameDay = (d1: Date, d2: Date) => {
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  };
+
   // Filter Logic
   const filteredItems = items.filter((item) => {
     const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -164,8 +176,49 @@ export default function ShoppingManager({
     
     const matchesEmployee = employeeFilter === "ALL" || item.employeeId === employeeFilter;
     
-    return matchesSearch && matchesStatus && matchesEmployee;
+    const itemDate = new Date(item.createdAt);
+    const matchesDate = !selectedDate || isSameDay(itemDate, selectedDate);
+    
+    return matchesSearch && matchesStatus && matchesEmployee && matchesDate;
   });
+
+  // Calendar Math
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  const startDayOfWeek = firstDayOfMonth.getDay();
+  const totalDays = lastDayOfMonth.getDate();
+
+  const daysInMonth: (Date | null)[] = [];
+
+  const prevMonthLast = new Date(year, month, 0).getDate();
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    daysInMonth.push(new Date(year, month - 1, prevMonthLast - i));
+  }
+
+  for (let i = 1; i <= totalDays; i++) {
+    daysInMonth.push(new Date(year, month, i));
+  }
+
+  const remainingCells = 42 - daysInMonth.length;
+  for (let i = 1; i <= remainingCells; i++) {
+    daysInMonth.push(new Date(year, month + 1, i));
+  }
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(year, month + 1, 1));
+  };
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(year, month - 1, 1));
+  };
+
+  const clearDateFilter = () => {
+    setSelectedDate(null);
+  };
 
   // Common Unit Chips
   const commonUnits = ["Kg", "Liter", "Pcs", "Dus", "Pack", "Ikat", "Box"];
@@ -211,10 +264,12 @@ export default function ShoppingManager({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* ================= FORM ADD ITEM (EMPLOYEE/ALL) ================= */}
-        <div className="lg:col-span-1 space-y-4">
+        {/* ================= PANELS KIRI: FORM & CALENDAR ================= */}
+        <div className="lg:col-span-4 space-y-6">
+          
+          {/* FORM ADD ITEM (EMPLOYEE/ALL) */}
           <div className="glass-panel p-6 rounded-xl border border-zinc-900 relative overflow-hidden bg-zinc-950/20">
             <h2 className="font-semibold text-sm text-white mb-4 flex items-center gap-2 border-b border-zinc-900 pb-3">
               <Plus className="w-4 h-4 text-zinc-400" />
@@ -231,7 +286,7 @@ export default function ShoppingManager({
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
                   placeholder="Contoh: Susu UHT Cokelat, Kopi Arabika"
-                  className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                  className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-650 focus:outline-none transition-colors"
                   required
                 />
               </div>
@@ -247,7 +302,7 @@ export default function ShoppingManager({
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
                     placeholder="Contoh: 10, 2.5"
-                    className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                    className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-650 focus:outline-none transition-colors"
                     required
                   />
                 </div>
@@ -260,7 +315,7 @@ export default function ShoppingManager({
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     placeholder="Pcs, Kg, Liter, dll."
-                    className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none transition-colors"
+                    className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-650 focus:outline-none transition-colors"
                     required
                   />
                 </div>
@@ -293,7 +348,7 @@ export default function ShoppingManager({
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Contoh: Stok tinggal 1 pcs, ambil merek Frisian Flag"
                   rows={3}
-                  className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none transition-colors resize-none"
+                  className="w-full bg-zinc-950 border border-zinc-900 focus:border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-650 focus:outline-none transition-colors resize-none"
                 />
               </div>
 
@@ -307,10 +362,118 @@ export default function ShoppingManager({
               </button>
             </form>
           </div>
+
+          {/* CALENDAR FILTER PANEL */}
+          <div className="glass-panel p-5 rounded-xl border border-zinc-900 bg-zinc-950/20 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-zinc-400" />
+                <span className="font-bold text-xs text-white uppercase tracking-wider">
+                  Kalender Belanja
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={prevMonth}
+                  className="p-1.5 hover:bg-zinc-900 text-zinc-455 hover:text-white rounded border border-zinc-900 transition-colors cursor-pointer text-xs leading-none"
+                >
+                  &larr;
+                </button>
+                <span className="text-[9px] font-bold text-zinc-350 px-1 font-mono uppercase">
+                  {currentMonth.toLocaleDateString("id-ID", { month: "short", year: "numeric" })}
+                </span>
+                <button
+                  type="button"
+                  onClick={nextMonth}
+                  className="p-1.5 hover:bg-zinc-900 text-zinc-455 hover:text-white rounded border border-zinc-900 transition-colors cursor-pointer text-xs leading-none"
+                >
+                  &rarr;
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {/* Day Names */}
+              {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((d) => (
+                <div key={d} className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest py-1">
+                  {d}
+                </div>
+              ))}
+
+              {/* Days cells */}
+              {daysInMonth.map((date, idx) => {
+                if (!date) return <div key={idx} />;
+
+                const isToday = isSameDay(date, new Date());
+                const isSelected = selectedDate && isSameDay(date, selectedDate);
+                const isCurrentMonth = date.getMonth() === month;
+                
+                // Count shopping items on this date
+                const dayItems = items.filter((item) => isSameDay(new Date(item.createdAt), date));
+                const pendingDayItems = dayItems.filter((i) => i.status === "PENDING");
+                const hasItems = dayItems.length > 0;
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setSelectedDate(date)}
+                    className={`py-1 rounded-md text-[9px] font-semibold flex flex-col items-center justify-between min-h-[34px] transition-all relative border cursor-pointer ${
+                      isSelected
+                        ? "bg-white text-black border-white font-extrabold"
+                        : isToday
+                        ? "bg-zinc-900 border-zinc-500 text-white"
+                        : isCurrentMonth
+                        ? "bg-zinc-950/40 border-zinc-900 text-zinc-350 hover:border-zinc-800 hover:bg-zinc-900/35"
+                        : "bg-transparent border-transparent text-zinc-650 hover:border-zinc-900"
+                    }`}
+                  >
+                    <span>{date.getDate()}</span>
+                    
+                    {/* Item Indicators */}
+                    {hasItems && (
+                      <span className={`w-1 h-1 rounded-full ${
+                        isSelected 
+                          ? "bg-black" 
+                          : pendingDayItems.length > 0 
+                          ? "bg-yellow-500" 
+                          : "bg-emerald-500"
+                      }`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Calendar Footer Info & Reset */}
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-900/60 text-[9px]">
+              <span className="text-zinc-500 font-medium">
+                {selectedDate ? (
+                  <>
+                    Filter: <strong className="text-zinc-300">{selectedDate.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</strong>
+                  </>
+                ) : (
+                  "Semua Tanggal"
+                )}
+              </span>
+              {selectedDate && (
+                <button
+                  type="button"
+                  onClick={clearDateFilter}
+                  className="text-zinc-400 hover:text-white font-bold underline transition-colors cursor-pointer text-[8px] uppercase tracking-wider"
+                >
+                  Lihat Semua
+                </button>
+              )}
+            </div>
+          </div>
+
         </div>
 
         {/* ================= MONITORING LIST (ALL) ================= */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-8 space-y-4">
           
           {/* Filters Bar */}
           <div className="glass-panel p-4 rounded-xl border border-zinc-900 bg-zinc-950/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -329,6 +492,19 @@ export default function ShoppingManager({
 
             {/* Filter Dropdowns */}
             <div className="flex flex-wrap items-center gap-3">
+              {selectedDate && (
+                <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg text-xs text-white">
+                  <span className="font-semibold text-[9px] uppercase font-mono tracking-wider">
+                    {selectedDate.toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
+                  </span>
+                  <button
+                    onClick={clearDateFilter}
+                    className="p-0.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
               <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-lg border border-zinc-900">
                 <Filter className="w-3.5 h-3.5 text-zinc-500" />
                 <select

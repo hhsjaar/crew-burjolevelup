@@ -72,6 +72,34 @@ export async function clockIn(shiftId: string, notes?: string, latitude?: number
       },
     });
 
+    // Salin Jobdesk Shift Rutin ke Task Karyawan secara otomatis
+    const routineTemplates = await db.shiftJobdesk.findMany({
+      where: { shiftId },
+    });
+
+    if (routineTemplates.length > 0) {
+      const admin = await db.employee.findFirst({
+        where: { role: "ADMIN" },
+      });
+      const creatorId = admin ? admin.id : session.id;
+
+      await Promise.all(
+        routineTemplates.map((template) =>
+          db.task.create({
+            data: {
+              title: template.title,
+              description: template.description,
+              type: "ONCE",
+              status: "PENDING",
+              employeeId: session.id,
+              createdById: creatorId,
+              dueDate: now,
+            },
+          })
+        )
+      );
+    }
+
     if (status === AttendanceStatus.LATE) {
       // Kirim notifikasi WA secara async agar tidak menghambat user interface
       (async () => {
@@ -124,6 +152,7 @@ export async function clockIn(shiftId: string, notes?: string, latitude?: number
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/attendance");
+    revalidatePath("/dashboard/jobdesk");
     return { success: true, attendance, tasks: employeeTasks };
   } catch (error: any) {
     console.error("Clock In error:", error);

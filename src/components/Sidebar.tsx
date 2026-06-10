@@ -87,6 +87,12 @@ export default function Sidebar({ user, claimableCount = 0 }: SidebarProps) {
       adminOnly: true,
     },
     {
+      label: "Jobdesk Shift Rutin",
+      icon: ClipboardList,
+      href: "/dashboard/admin/routine-jobdesk",
+      adminOnly: true,
+    },
+    {
       label: "Rekap & Gaji",
       icon: DollarSign,
       href: "/dashboard/admin/payroll",

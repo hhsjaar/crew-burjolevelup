@@ -105,6 +105,7 @@ model Shift {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   attendances Attendance[]
+  jobdesks    ShiftJobdesk[]
 
   @@schema("absensi")
 }
@@ -198,6 +199,18 @@ model ShoppingItem {
   status      String   @default("PENDING") // PENDING, PURCHASED
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@schema("absensi")
+}
+
+model ShiftJobdesk {
+  id          String   @id @default(uuid())
+  shiftId     String
+  shift       Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
