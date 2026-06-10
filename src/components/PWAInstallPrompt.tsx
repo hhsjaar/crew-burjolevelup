@@ -13,8 +13,8 @@ export default function PWAInstallPrompt() {
   useEffect(() => {
     // 1. Check if the app is already running in standalone mode (already installed)
     const checkStandalone = () => {
-      const isStandaloneMode = 
-        window.matchMedia("(display-mode: standalone)").matches || 
+      const isStandaloneMode =
+        window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsStandalone(isStandaloneMode);
       return isStandaloneMode;
@@ -45,11 +45,11 @@ export default function PWAInstallPrompt() {
       e.preventDefault();
       // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
-      
+
       // Only show if not dismissed in the last 3 days
       const dismissedUntil = localStorage.getItem("pwa_prompt_dismissed_until");
       const isDismissed = dismissedUntil && Number(dismissedUntil) > Date.now();
-      
+
       if (!isDismissed && !isStandaloneMode) {
         // Show after a brief delay for smoother page loading
         const timer = setTimeout(() => {
@@ -132,7 +132,7 @@ export default function PWAInstallPrompt() {
           </div>
           <div className="space-y-1">
             <h3 className="text-sm font-bold text-white tracking-tight">
-              Instal Burjo LevelUp
+              Instal Internal Burjolevelup
             </h3>
             <p className="text-[11px] text-zinc-450 leading-relaxed">
               Dapatkan akses absensi selfie, pelacakan jobdesk, dan pencatatan operasional dengan lebih cepat langsung dari layar utama perangkat Anda.
